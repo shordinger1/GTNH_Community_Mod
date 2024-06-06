@@ -1,6 +1,5 @@
 package com.Nxer.TwistSpaceTechnology.common.machine;
 
-import static com.Nxer.TwistSpaceTechnology.TwistSpaceTechnology.LOG;
 import static com.Nxer.TwistSpaceTechnology.system.RecipePattern.CustomCraftRecipe.areStacksEqual;
 import static com.Nxer.TwistSpaceTechnology.system.RecipePattern.ExtremeCraftRecipe.extremeCraftRecipes;
 import static com.Nxer.TwistSpaceTechnology.util.TextLocalization.ModName;
@@ -19,6 +18,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Objects;
 
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -70,6 +70,8 @@ public class TST_MegaCraftingCenter extends GT_MetaTileEntity_MultiblockBase_EM
     @NotNull
     private ArrayList<ICraftingPatternDetails> cachedPatternDetails = new ArrayList<>();
     private final HashMap<ICraftingPatternDetails, Long> cachedOutput = new HashMap<>();
+
+    private int patternNumber = -1;
 
     private ArrayList<ItemStack> cachedPattern;
     @Nullable
@@ -169,8 +171,16 @@ public class TST_MegaCraftingCenter extends GT_MetaTileEntity_MultiblockBase_EM
     public void onFirstTick_EM(IGregTechTileEntity aBaseMetaTileEntity) {
         super.onFirstTick_EM(aBaseMetaTileEntity);
         getProxy().onReady();
-        updatePatterns();
+        if (aBaseMetaTileEntity.isServerSide()) {
+            updatePatterns();
+        }
         // appeng.me.cache.CraftingGridCache.addNode(this);
+    }
+
+    @Override
+    public void onScrewdriverRightClick(ForgeDirection side, EntityPlayer aPlayer, float aX, float aY, float aZ) {
+        super.onScrewdriverRightClick(side, aPlayer, aX, aY, aZ);
+        updatePatterns();
     }
 
     @Override
@@ -307,14 +317,14 @@ public class TST_MegaCraftingCenter extends GT_MetaTileEntity_MultiblockBase_EM
     public void updatePatterns() {
         ArrayList<ICraftingPatternDetails> patternDetails = new ArrayList<>();
         ArrayList<ItemStack> patterns = getStoredInputs();
-        if (!patterns.equals(cachedPattern)) {
+        if (patterns.size() != patternNumber) {
             for (var pattern : patterns) {
                 if (pattern.getItem() instanceof ItemEncodedPattern encodedPattern) {
                     var details = encodedPattern.getPatternForItem(pattern, getBaseMetaTileEntity().getWorld());
                     if (cachedPatternDetails.contains(details)) patternDetails.add(details);
                     else if (details.isCraftable()) {
                         patternDetails.add(details);
-                        LOG.info("details added:" + details);
+                        // LOG.info("details added:" + details);
                     } else {
                         if (details.getOutputs().length != 1) continue;
                         // LOG.info(
@@ -343,6 +353,7 @@ public class TST_MegaCraftingCenter extends GT_MetaTileEntity_MultiblockBase_EM
             }
             cachedPatternDetails = patternDetails;
             cachedPattern = patterns;
+            patternNumber = patterns.size();
             // getProxy().getGrid().
             if (!getProxy().isActive()) return;
             try {
